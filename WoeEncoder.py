@@ -13,15 +13,18 @@ class WoeEncoder():
     def iv_report(self, ascending=False):
         return pd.DataFrame(self.df_iv).sort_values('iv', ascending=ascending)
     
+    
     # 每个变量分桶后的详细
     def get_bin_detial(self, col_name):
         return self.df_bin_record[col_name]
+    
     
     # 每个样本的在这个变量上的 woe 编码
     def get_woe_value(self, col_name):
         result = pd.merge(self.df_bin_record_detail[col_name], self.df_bin_record[col_name][['bins', 'woe']], on='bins', how='left')
         result = pd.concat([self.df_data[col_name], result], axis=1)
         return result
+    
     
     def fit(self):
         self.df_bin_record = {}
@@ -35,6 +38,7 @@ class WoeEncoder():
             self.df_bin_record[key] = df_woe
             self.df_bin_record_detail[key] = bins_detail
 
+            
     def get_woe_and_iv(self, df, labels, col, strategy='distance', bins=None):
 
         # 数据分桶
@@ -72,7 +76,7 @@ class WoeEncoder():
 
         return woe_detail, iv_score, df['bins']
     
-
+    
     def init_bins(self, bins):
         con_dict = {x: {'strategy': 'distance', 'bins': [-float('inf')] + [num for num in range(self.df_data[x].nunique())]} if x not in bins else bins[x] for x in self.cat_features_name }
         cat_dict = {x: {'strategy': 'frequency', 'bins': [0, 0.2, 0.4, 0.6, 0.8, 1]} if x not in bins else bins[x] for x in self.con_features_name}
