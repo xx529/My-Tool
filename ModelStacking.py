@@ -3,17 +3,18 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from collections import namedtuple
 
-
 class ModelStacking:
     def __init__(self):
         self.model_info_list = []
         self.ModelInfo = namedtuple('KFoldModel', ['name', 'models', 'val_fold_index'])
         self.train_model = LinearRegression()
 
+
     # 增加集成的 model 
     def add_model(self, name, models, k_fold):
         val_fold_index = [x[1] for x in k_fold]
         self.model_info_list.append(self.ModelInfo(name, models, val_fold_index))
+
 
     # 拟合模型（默认LR模型与参数）
     def fit(self, train_x, Y):
@@ -21,11 +22,13 @@ class ModelStacking:
         self.train_model.fit(self.train_meta_features, Y)
         return self.train_model
     
+
     # 模型预测
     def predict(self, test_x):
         self.creat_predict_feature(test_x)
         result = self.train_model.predict(self.predict_meta_features)
-        return result
+        return resul
+
 
     # 获取所有 model 的训练用 new feature
     def creat_meta_features(self, train_x):
@@ -38,6 +41,7 @@ class ModelStacking:
         self.train_meta_features = pd.concat(df_new_feature_list, axis=1)
         return self.train_meta_features
 
+
     # 创建一个 model 的训练用 new feature
     def creat_train_new_feature(self, cls_model_info, train_x):
         new_feature_array = np.zeros(shape=train_x.shape[0])
@@ -48,7 +52,7 @@ class ModelStacking:
 
         return pd.DataFrame(new_feature_array, columns=['train_' + cls_model_info.name])
     
-    
+
     # 获取所有 model 的预测用 predict feature
     def creat_predict_feature(self, test_x):
         df_predict_feature_list = []
@@ -60,7 +64,7 @@ class ModelStacking:
         self.predict_meta_features = pd.concat(df_predict_feature_list, axis=1)
         return self.predict_meta_features
 
-      
+
     # 创建一个 model 的训练用 new feature
     def creat_predict_new_feature(self, cls_model_info, test_x):
         predict_feature_array = np.zeros(shape=test_x.shape[0])
@@ -77,12 +81,20 @@ class ModelStacking:
         self.train_model = train_model
 
 
-
+# ---------------------------
+# 快捷使用
 stack = ModelStacking()
 stack.add_model('lgb_1', [model]*5, k_fold_1)
-stack.add_model('lgb_2', [model]*5, k_fold_1)
-
-# stack.set_train_model(LogisticRegression())
-
+stack.add_model('lgb_2', [model]*5, k_fold_2)
 stack.fit(df_train_raw, df_label)
 stack.predict(df_test_raw)
+
+# 自定义模型
+clssifier = LogisticRegression()
+stack.set_train_model(clssifier)
+
+# 仅获取 stack 训练和预测用的特征
+stack = ModelStacking()
+stack.add_model('lgb_1', [model]*5, k_fold_1)
+train_meta_features = stack.creat_meta_features(df_train_raw)
+predict_meta_features = stack.creat_predict_feature(df_test_raw)
