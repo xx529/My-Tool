@@ -8,6 +8,7 @@ class ModelStacking:
         self.model_info_list = []
         self.ModelInfo = namedtuple('KFoldModel', ['name', 'models', 'val_fold_index'])
         self.train_model = LinearRegression()
+        self.is_transform = False
 
 
     # 增加集成的 model 
@@ -16,78 +17,61 @@ class ModelStacking:
         self.model_info_list.append(self.ModelInfo(name, models, val_fold_index))
 
 
+    # 把原来训练和预测的特征转换成 stacking feature
+    def transform(self, train_x, test_x):
+        df_train_feature_list, df_predict_feature_list = [], []
+        
+        for cls_model_info in self.model_info_list:
+            df_train_feature, df_test_feature = self.creat_features(cls_model_info, train_x, test_x)
+            
+            df_train_feature_list.append(df_train_feature)
+            df_predict_feature_list.append(df_test_feature)
+
+        self.train_meta_features = pd.concat(df_train_feature_list, axis=1)
+        self.predict_meta_features = pd.concat(df_predict_feature_list, axis=1)
+
+        self.is_transform = True
+        return self.train_meta_features, self.predict_meta_features
+
+
     # 拟合模型（默认LR模型与参数）
-    def fit(self, train_x, Y):
-        self.creat_meta_features(train_x)
+    def fit(self, train_x, test_x, Y):
+        None if self.is_transform else self.transform(train_x, test_x)
         self.train_model.fit(self.train_meta_features, Y)
         return self.train_model
     
 
     # 模型预测
-    def predict(self, test_x):
-        self.creat_predict_feature(test_x)
+    def predict(self):
         result = self.train_model.predict(self.predict_meta_features)
-        return resul
+        return result
+    
 
-
-    # 获取所有 model 的训练用 new feature
-    def creat_meta_features(self, train_x):
-        df_new_feature_list = []
-
-        for cls_model_info in self.model_info_list:
-            df_new_feature = self.creat_train_new_feature(cls_model_info, train_x)
-            df_new_feature_list.append(df_new_feature)
-        
-        self.train_meta_features = pd.concat(df_new_feature_list, axis=1)
-        return self.train_meta_features
-
-
-    # 创建一个 model 的训练用 new feature
-    def creat_train_new_feature(self, cls_model_info, train_x):
-        new_feature_array = np.zeros(shape=train_x.shape[0])
+    # 转换一类 model 的训练和预测 stacking feature
+    def creat_features(self, cls_model_info, train_x, test_x):
+        train_feature_array, predict_feature_array = np.zeros(shape=train_x.shape[0]), np.zeros(shape=test_x.shape[0])
 
         for model, index in zip(cls_model_info.models, cls_model_info.val_fold_index):
-            new_feature_predict = model.predict(train_x.iloc[index, :])
-            new_feature_array[index] = new_feature_predict
+            train_feature_array[index] = model.predict(train_x.iloc[index, :])
+            predict_feature_array += model.predict(test_x) / len(cls_model_info.models)
 
-        return pd.DataFrame(new_feature_array, columns=['train_' + cls_model_info.name])
+        df_train = pd.DataFrame(train_feature_array, columns=['train_' + cls_model_info.name])
+        df_test = pd.DataFrame(predict_feature_array, columns=['predict_' + cls_model_info.name])
+
+        return df_train, df_test
+
     
-
-    # 获取所有 model 的预测用 predict feature
-    def creat_predict_feature(self, test_x):
-        df_predict_feature_list = []
-
-        for cls_model_info in self.model_info_list:
-            df_predict_feature = self.creat_predict_new_feature(cls_model_info, test_x)
-            df_predict_feature_list.append(df_predict_feature)
-
-        self.predict_meta_features = pd.concat(df_predict_feature_list, axis=1)
-        return self.predict_meta_features
-
-
-    # 创建一个 model 的训练用 new feature
-    def creat_predict_new_feature(self, cls_model_info, test_x):
-        predict_feature_array = np.zeros(shape=test_x.shape[0])
-
-        for model in cls_model_info.models:
-            predict_feature_array += model.predict(test_x)
-
-        predict_feature_array = predict_feature_array / len(cls_model_info.models)
-        return pd.DataFrame(predict_feature_array, columns=['predict_' + cls_model_info.name])
-    
-
     # 设置 stacking 训练用的模型，默认LR
     def set_train_model(self, train_model):
         self.train_model = train_model
-
 
 # ---------------------------
 # 快捷使用
 stack = ModelStacking()
 stack.add_model('lgb_1', [model]*5, k_fold_1)
 stack.add_model('lgb_2', [model]*5, k_fold_2)
-stack.fit(df_train_raw, df_label)
-stack.predict(df_test_raw)
+stack.fit(df_train_raw, df_test_raw, df_label)
+stack.predict()
 
 # 自定义模型
 clssifier = LogisticRegression()
@@ -96,5 +80,4 @@ stack.set_train_model(clssifier)
 # 仅获取 stack 训练和预测用的特征
 stack = ModelStacking()
 stack.add_model('lgb_1', [model]*5, k_fold_1)
-train_meta_features = stack.creat_meta_features(df_train_raw)
-predict_meta_features = stack.creat_predict_feature(df_test_raw)
+train_meta_features, test_meta_features = stack.transform(train_x, test_x)
