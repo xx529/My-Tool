@@ -15,6 +15,7 @@ class KfoldTrain:
         self.feature_name = feature_name
         self.cat_feature_name = cat_feature_name
         self.output_models = []
+        self.best_param = []
 
     def train(self):
         for idx, (train_idx, val_idx) in enumerate(self.k_fold):
@@ -24,18 +25,18 @@ class KfoldTrain:
             val_feature_df = self.train_x.iloc[val_idx, :]
             val_label_df = self.label.iloc[val_idx, :]
             
-            current_fold_model = self.find_best_model_in_one_fold(train_feture_df, val_feature_df, train_label_df, val_label_df)
+            current_fold_model, current_fold_param = self.find_best_model_in_one_fold(train_feture_df, val_feature_df, train_label_df, val_label_df)
             self.output_models.append(current_fold_model)
+            self.best_param.append(current_fold_param)
 
         return self.output_models
 
     def predict(self, Y):
-        pre = np.zeros(shape=Y.shape[0])
+        result = np.zeros(shape=Y.shape[0])
     
         for model in self.output_models:
-            pre += model.predict(Y)
+            result += model.predict(Y) / len(self.output_models)
     
-        result = pre / len(models)
         return result
 
     # 每一个 fold 寻找最好的 model 与参数
@@ -60,7 +61,7 @@ class KfoldTrain:
                 best_param = param
                 
         print('val_set best score : {}'.format(best_score))
-        return best_model
+        return best_model, best_param
 
 
 
