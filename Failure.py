@@ -25,11 +25,11 @@ from operator import neg
 x = '1'
 y = Failure(x) | int | neg | str
 print(y)
->>> -1 False
+# >>> -1 False
 
 # This will not
 from operator import neg
 x = 'hahaha'
 y = Failure(x) | int | neg | str
 print(y)
->>> None True
+# >>> None True
